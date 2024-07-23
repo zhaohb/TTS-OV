@@ -412,7 +412,7 @@ $ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<mode
 </details>
 
 ## Release Notes
-### 2024/07/24 
+### 2024/07/23
 1. Supports using openvino to accelerate the inference process.
 ## Running Guide
 ### Installation
