@@ -420,9 +420,8 @@ $ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<mode
 
 ```bash
 git clone https://github.com/zhaohb/TTS-OV.git
-pip install openvino_dev
+pip install openvino_dev onnx
 cd TTS-OV
-pip install -r requirements.txt
 pip install -e . 
 ```
 ### Using the model directly:
