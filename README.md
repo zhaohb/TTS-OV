@@ -1,4 +1,7 @@
 
+<details>
+  <summary>Click here to expand/collapse content</summary>
+  <ul>
 ## 🐸Coqui.ai News
 - 📣 ⓍTTSv2 is here with 16 languages and better performance across the board.
 - 📣 ⓍTTS fine-tuning code is out. Check the [example recipes](https://github.com/coqui-ai/TTS/tree/dev/recipes/ljspeech).
@@ -404,4 +407,62 @@ $ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<mode
         |- (same)
     |- vocoder/         (Vocoder models.)
         |- (same)
+```
+  </ul>
+</details>
+
+## Release Notes
+### 2024/07/24 
+1. Supports using openvino to accelerate the inference process.
+## Running Guide
+### Installation
+🐸TTS is tested on Ubuntu 18.04 with **python >= 3.9, < 3.12.**.
+
+```bash
+git clone https://github.com/zhaohb/TTS-OV.git
+pip install openvino_dev
+cd TTS-OV
+pip install -r requirements.txt
+pip install -e . 
+```
+### Using the model directly:
+```python
+import os
+import torch
+import torchaudio
+from TTS.tts.configs.xtts_config import XttsConfig
+from TTS.tts.models.xtts import Xtts
+from TTS.tts.models.xtts_model import GPTModel, HifiModel, GPTInferModel, GPTInferPastModel
+import time
+import numpy as np
+
+print("Loading model...")
+config = XttsConfig()
+config.load_json("/home/emr/hongbo/models/XTTS-v2/config.json")
+model = Xtts.init_from_config(config)
+model.load_checkpoint(config, checkpoint_dir="/home/emr/hongbo/models/XTTS-v2")
+
+gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=["en_sample.wav", "en_sample.wav"])
+
+gpt_ov_model = GPTModel(model)
+hifi_ov_model = HifiModel(model)
+gpt_infer_model = GPTInferModel(model)
+gpt_infer_past_model=GPTInferPastModel(model)
+
+print("Ov Inference...")
+out = model.inference(
+    "OpenVINO is an open-source software toolkit for optimizing and deploying deep learning models. It enables programmers to develop scalable and efficient AI solutions with relatively few lines of code. It supports several popular model formats.",
+    "en",
+    # " OpenVINO是一个开源工具包，可优化和部署深度学习模型。它提供了针对视觉、音频和语言模型的深度学习性能加速，支持流行框架。",
+    # "zh-cn",
+    gpt_cond_latent,
+    speaker_embedding,
+    temperature=0.7, # Add custom parameters here
+    use_ov = True,
+    gpt_ov_model=gpt_ov_model,
+    hifi_ov_model=hifi_ov_model,
+    gpt_infer_model=gpt_infer_model,
+    gpt_infer_past_model=gpt_infer_past_model,
+)
+torchaudio.save("ov_test.wav", torch.tensor(out["wav"]).unsqueeze(0), 24000)
 ```

@@ -516,6 +516,11 @@ class Xtts(BaseTTS):
         num_beams=1,
         speed=1.0,
         enable_text_splitting=False,
+        use_ov=False,
+        gpt_ov_model=None,
+        hifi_ov_model=None,
+        gpt_infer_model=None,
+        gpt_infer_past_model=None,
         **hf_generate_kwargs,
     ):
         language = language.split("-")[0]  # remove the country code
@@ -551,22 +556,36 @@ class Xtts(BaseTTS):
                     length_penalty=length_penalty,
                     repetition_penalty=repetition_penalty,
                     output_attentions=False,
+                    use_ov=use_ov,
+                    gpt_infer_model=gpt_infer_model,
+                    gpt_infer_past_model=gpt_infer_past_model,
                     **hf_generate_kwargs,
                 )
+                if use_ov:
+                    self.gpt.gpt_inference.generate_flag=False
                 expected_output_len = torch.tensor(
                     [gpt_codes.shape[-1] * self.gpt.code_stride_len], device=text_tokens.device
                 )
 
                 text_len = torch.tensor([text_tokens.shape[-1]], device=self.device)
-                gpt_latents = self.gpt(
-                    text_tokens,
-                    text_len,
-                    gpt_codes,
-                    expected_output_len,
-                    cond_latents=gpt_cond_latent,
-                    return_attentions=False,
-                    return_latent=True,
-                )
+                if use_ov:
+                    gpt_latents = gpt_ov_model.run(
+                        text_tokens,
+                        text_len,
+                        gpt_codes,
+                        expected_output_len,
+                        cond_latents=gpt_cond_latent
+                    )
+                else:
+                    gpt_latents = self.gpt(
+                        text_tokens,
+                        text_len,
+                        gpt_codes,
+                        expected_output_len,
+                        cond_latents=gpt_cond_latent,
+                        return_attentions=False,
+                        return_latent=True,
+                    )
 
                 if length_scale != 1.0:
                     gpt_latents = F.interpolate(
@@ -574,7 +593,10 @@ class Xtts(BaseTTS):
                     ).transpose(1, 2)
 
                 gpt_latents_list.append(gpt_latents.cpu())
-                wavs.append(self.hifigan_decoder(gpt_latents, g=speaker_embedding).cpu().squeeze())
+                if use_ov:
+                    wavs.append(hifi_ov_model.run(gpt_latents, speaker_embedding).squeeze())
+                else:
+                    wavs.append(self.hifigan_decoder(gpt_latents, g=speaker_embedding).cpu().squeeze())
 
         return {
             "wav": torch.cat(wavs, dim=0).numpy(),
