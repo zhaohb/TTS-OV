@@ -413,14 +413,17 @@ $ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<mode
 
 ## Release Notes
 ### 2024/07/23
-1. XTTS-V2 model supports using openvino to accelerate the inference process.
+1. XTTS-V2 model supports using openvino to accelerate the inference process. Currently only verified on Linux system.
+### 2024/07/24
+1. Support sdpa optimization
 ## Running Guide
 ### Installation
 🐸TTS is tested on Ubuntu 18.04 with **python >= 3.9, < 3.12.**.
 
 ```bash
 git clone https://github.com/zhaohb/TTS-OV.git
-pip install openvino_dev onnx
+pip install openvino_dev # Optional, you can compile openvino yourself and use sdpa optimization. [Optional Optimization]
+pip install onnx
 cd TTS-OV
 pip install -e . 
 ```
@@ -465,3 +468,16 @@ out = model.inference(
 )
 torchaudio.save("ov_test.wav", torch.tensor(out["wav"]).unsqueeze(0), 24000)
 ```
+
+### Optional Optimization
+By default, we use the official release of openvino, but the official version of OpenVINO sdpa and stateful optimization are bundled together, and we are now using stateless, so we cannot use sdpa optimization. However, we can choose to use the enable_sdpa_stateless branch of openvino to ensure that XTTS-V2 can use sdpa optimization.
+
+Get the openvino code:
+```shell
+  git clone https://github.com/zhangYiIntel/openvino.git
+  cd openvino/
+  git checkout remotes/origin/yi3/enable_sdpa_stateless -b enable_sdpa_stateless
+```
+We can refer to this link [Build OpenVINO™ Runtime for Linux systems](https://github.com/openvinotoolkit/openvino/blob/master/docs/dev/build_linux.md) to compile and install openvino.
+
+After compiling and installing, we can use sdpa optimization. Maybe The speed of inference will shock you.
