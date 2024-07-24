@@ -375,15 +375,19 @@ class GPTInferPastModel(BaseModel):
                 "past_key_values": pkv,
              },
         )
+        
+        print("model inputs: ", ov_model.inputs)
+        print("custom model inputs: ", self.get_input_names())
+        assert ov_model.inputs[0].get_names().pop() == 'input_ids'
+        assert ov_model.inputs[-1].get_names().pop() == 'position_ids'
+        assert ov_model.inputs[-2].get_names().pop() == 'attention_mask'
 
         for input, input_name in zip(ov_model.inputs, self.get_input_names()):
             input.get_tensor().set_names({input_name})
 
         for output, output_name in zip(ov_model.outputs, self.get_output_names()):
             output.get_tensor().set_names({output_name})
-        
-        print("model inputs: ", ov_model.inputs)
-        print("custom model inputs: ", self.get_input_names())
+
         
         ov_model.validate_nodes_and_infer_types()
 
