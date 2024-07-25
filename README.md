@@ -411,11 +411,13 @@ $ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<mode
   </ul>
 </details>
 
-## Release Notes
+## Update Notes
 ### 2024/07/23
 1. XTTS-V2 model supports using openvino to accelerate the inference process. Currently only verified on Linux system.
 ### 2024/07/24
 1. Support sdpa optimization
+### 2024/07/25
+1. Expose device options to support different devices
 ## Running Guide
 ### Installation
 🐸TTS is tested on Ubuntu 18.04 with **python >= 3.9, < 3.12.**.
