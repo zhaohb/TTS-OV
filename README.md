@@ -448,10 +448,10 @@ model.load_checkpoint(config, checkpoint_dir="/home/emr/hongbo/models/XTTS-v2")
 
 gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=["en_sample.wav", "en_sample.wav"])
 
-gpt_ov_model = GPTModel(model)
-hifi_ov_model = HifiModel(model)
-gpt_infer_model = GPTInferModel(model)
-gpt_infer_past_model=GPTInferPastModel(model)
+gpt_ov_model = GPTModel(model=model, device='CPU')
+hifi_ov_model = HifiModel(model=model, device='CPU')
+gpt_infer_model = GPTInferModel(model=model, device='CPU')
+gpt_infer_past_model=GPTInferPastModel(model=model, device='CPU')
 
 print("Ov Inference...")
 out = model.inference(

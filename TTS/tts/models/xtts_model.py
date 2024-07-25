@@ -161,7 +161,6 @@ def make_stateful(
 
 
 def patch_stateful(ov_model):
-    breakpoint()
     # key_value_input_names = [key.get_any_name() for key in ov_model.inputs[3:-1]]
     # key_value_output_names = [key.get_any_name() for key in ov_model.outputs[1:]]
     # not_kv_inputs = [input for input in ov_model.inputs if not any(name in key_value_input_names for name in input.get_names())]
@@ -194,9 +193,11 @@ def patch_stateful(ov_model):
 class BaseModel():
     def __init__(
         self,
+        device='CPU',
         fp16=False,
     ):
-        self.name = "GPT Model"
+        self.device = device
+        self.name = "XTTS-V2 Model"
 
 
     def get_model(self):
@@ -223,12 +224,14 @@ class BaseModel():
 class GPTInferPastModel(BaseModel):
     def __init__(
         self,
-        model,
+        model=None,
+        device='CPU',
         fp16=False,
     ):
         self.name = "GPT Model"
         self.model = model
         self.fp16=fp16
+        self.device = device
         self.inputs_dict = {}
         self.convert_past_sdpa_ov()
 
@@ -337,7 +340,7 @@ class GPTInferPastModel(BaseModel):
 
         core = ov.Core()
         # config = {'INFERENCE_PRECISION_HINT': 'f32'}
-        self.ov_compiled = core.compile_model(self.gpt2_infer_ov_model, "CPU")
+        self.ov_compiled = core.compile_model(self.gpt2_infer_ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
 
     def convert_past_sdpa_ov(self):
@@ -426,11 +429,13 @@ class GPTInferPastModel(BaseModel):
 class GPTInferModel(BaseModel):
     def __init__(
         self,
-        model,
+        model=None,
+        device='CPU',
         fp16=False,
     ):
         self.name = "GPT Model"
         self.model = model
+        self.device=device
         self.fp16=fp16
         self.inputs_dict = {}
         self.convert_sdpa_ov()
@@ -515,7 +520,7 @@ class GPTInferModel(BaseModel):
 
         core = ov.Core()
         # config = {'INFERENCE_PRECISION_HINT': 'f32'}
-        self.ov_compiled = core.compile_model(self.gpt2_infer_ov_model, "CPU")
+        self.ov_compiled = core.compile_model(self.gpt2_infer_ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
 
     def convert_sdpa_ov(self):
@@ -552,7 +557,7 @@ class GPTInferModel(BaseModel):
 
         core = ov.Core()
 
-        self.ov_compiled = core.compile_model(ov_model, "CPU")
+        self.ov_compiled = core.compile_model(ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
 
     def run(self, input_ids=None, attention_mask=None, position_ids=None):
@@ -579,11 +584,13 @@ class GPTInferModel(BaseModel):
 class GPTInferStatefulModel(BaseModel):
     def __init__(
         self,
-        model,
+        model=None,
+        device='CPU',
         fp16=False,
     ):
         self.name = "GPT Model"
         self.model = model
+        self.device = device
         self.fp16=fp16
         self.inputs_dict = {}
         self.convert_ov()
@@ -652,7 +659,7 @@ class GPTInferStatefulModel(BaseModel):
         core = ov.Core()
 
         # config = {'INFERENCE_PRECISION_HINT': 'f32'}
-        self.ov_compiled = core.compile_model(ov_model, "CPU")
+        self.ov_compiled = core.compile_model(ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
 
     def run(self, input_ids=None, attention_mask=None, position_ids=None, beam_idx=None):
@@ -677,11 +684,13 @@ class GPTInferStatefulModel(BaseModel):
 class GPTModel(BaseModel):
     def __init__(
         self,
-        model,
+        model=None,
+        device='CPU',
         fp16=False,
     ):
         self.name = "GPT Model"
         self.model = model
+        self.device=device
         self.fp16=fp16
         self.inputs_dict = {}
         self.convert_ov()
@@ -761,7 +770,7 @@ class GPTModel(BaseModel):
             os.remove(tmp_onnx_path)
 
         core = ov.Core()
-        self.ov_compiled = core.compile_model(self.gpt2_ov_model, "CPU")
+        self.ov_compiled = core.compile_model(self.gpt2_ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
 
     def run(self, text_input=None, text_lengths=None, audio_codes=None, wav_lengths=None, cond_latents=None):
@@ -780,11 +789,13 @@ class GPTModel(BaseModel):
 class HifiModel(BaseModel):
     def __init__(
         self,
-        model,
+        model=None,
+        device='CPU',
         fp16=False,
     ):
         self.name = "Hifi Model"
         self.model = model
+        self.device=device
         self.fp16=fp16
         self.inputs_dict = {}
         self.batch_size = 1
@@ -838,7 +849,7 @@ class HifiModel(BaseModel):
             os.remove(tmp_onnx_path)
 
         core = ov.Core()
-        self.ov_compiled = core.compile_model(self.hifi_ov_model, "CPU")
+        self.ov_compiled = core.compile_model(self.hifi_ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
 
 
