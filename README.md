@@ -426,6 +426,7 @@ pip install openvino_dev # Optional, you can compile openvino yourself and use s
 pip install onnx
 cd TTS-OV
 pip install -r requirements.txt
+pip install transformers==4.42.4
 pip install -e . 
 ```
 ### Using the model directly:
