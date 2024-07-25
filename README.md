@@ -425,6 +425,7 @@ git clone https://github.com/zhaohb/TTS-OV.git
 pip install openvino_dev # Optional, you can compile openvino yourself and use sdpa optimization. [Optional Optimization]
 pip install onnx
 cd TTS-OV
+pip install -r requirements.txt
 pip install -e . 
 ```
 ### Using the model directly:
