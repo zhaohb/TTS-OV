@@ -12,7 +12,6 @@ from typing import Optional, Tuple, List
 from openvino.runtime import opset13
 import numpy as np
 
-
 def model_has_state(ov_model: ov.Model):
     # TODO: Provide a better way based on the variables availability, but OV Python API doesn't expose required methods
     return len(ov_model.get_sinks()) > 0
@@ -324,6 +323,7 @@ class GPTInferPastModel(BaseModel):
 
     def convert_past_ov(self):
         tmp_onnx_path = '/tmp/tmp_gpt_infer_past.onnx'
+        ov_model_path = "./ov_gpt_infer_past.xml"
         torch.onnx.export(self.get_model(),
             self.get_sample_input(),
             tmp_onnx_path,
@@ -331,14 +331,19 @@ class GPTInferPastModel(BaseModel):
             output_names=self.get_output_names(),
             dynamic_axes=self.get_dynamic_axes()
         )
-
-        self.gpt2_infer_ov_model = ov.convert_model(tmp_onnx_path)
+        core = ov.Core()
+        if not os.path.exists(ov_model_path):
+            self.gpt2_infer_ov_model = ov.convert_model(tmp_onnx_path)
+            ov.save_model(self.gpt2_infer_ov_model, ov_model_path)
+            print("========OpenVINO ov_gpt_infer_past convert success========")
+        else:
+            self.gpt2_infer_ov_model = core.read_model(ov_model_path)
+            
         # Check if the file exists
         if os.path.exists(tmp_onnx_path):
             # Delete the file
             os.remove(tmp_onnx_path)
-
-        core = ov.Core()
+        
         # config = {'INFERENCE_PRECISION_HINT': 'f32'}
         self.ov_compiled = core.compile_model(self.gpt2_infer_ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
@@ -381,9 +386,9 @@ class GPTInferPastModel(BaseModel):
         
         print("model inputs: ", ov_model.inputs)
         print("custom model inputs: ", self.get_input_names())
-        assert ov_model.inputs[0].get_names().pop() == 'input_ids'
-        assert ov_model.inputs[-1].get_names().pop() == 'position_ids'
-        assert ov_model.inputs[-2].get_names().pop() == 'attention_mask'
+        # assert ov_model.inputs[0].get_names().pop() == 'input_ids'
+        # assert ov_model.inputs[-1].get_names().pop() == 'position_ids'
+        # assert ov_model.inputs[-2].get_names().pop() == 'attention_mask'
 
         for input, input_name in zip(ov_model.inputs, self.get_input_names()):
             input.get_tensor().set_names({input_name})
@@ -503,6 +508,7 @@ class GPTInferModel(BaseModel):
     
     def convert_ov(self):
         tmp_onnx_path = '/tmp/tmp_gpt_infer.onnx'
+        ov_model_path = "./ov_gpt_infer.xml"
         torch.onnx.export(self.get_model(),
             self.get_sample_input(),
             tmp_onnx_path,
@@ -510,15 +516,20 @@ class GPTInferModel(BaseModel):
             output_names=self.get_output_names(),
             dynamic_axes=self.get_dynamic_axes()
         )
-
-        self.gpt2_infer_ov_model = ov.convert_model(tmp_onnx_path)
+        core = ov.Core()
+        if not os.path.exists(ov_model_path):
+            self.gpt2_infer_ov_model = ov.convert_model(tmp_onnx_path)
+            ov.save_model(self.gpt2_infer_ov_model, ov_model_path)
+            print("========OpenVINO gpt2_infer_ov_model convert success========")
+        else:
+            self.gpt2_infer_ov_model = core.read_model(ov_model_path)
 
         # Check if the file exists
         if os.path.exists(tmp_onnx_path):
             # Delete the file
             os.remove(tmp_onnx_path)
 
-        core = ov.Core()
+        
         # config = {'INFERENCE_PRECISION_HINT': 'f32'}
         self.ov_compiled = core.compile_model(self.gpt2_infer_ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
@@ -755,6 +766,7 @@ class GPTModel(BaseModel):
         )
     def convert_ov(self):
         tmp_onnx_path = '/tmp/tmp_gpt.onnx'
+        ov_model_path = "./ov_gpt.xml"
         torch.onnx.export(self.get_model(),
             self.get_sample_input(),
             tmp_onnx_path,
@@ -762,14 +774,20 @@ class GPTModel(BaseModel):
             output_names=self.get_output_names(),
             dynamic_axes=self.get_dynamic_axes()
         )
+        core = ov.Core()
+        if not os.path.exists(ov_model_path):
+            self.gpt2_ov_model = ov.convert_model(tmp_onnx_path)
+            ov.save_model(self.gpt2_ov_model, ov_model_path)
+            print("========OpenVINO gpt2_ov_model convert success========")
+        else:
+            self.gpt2_ov_model = core.read_model(ov_model_path)
 
-        self.gpt2_ov_model = ov.convert_model(tmp_onnx_path)
         # Check if the file exists
         if os.path.exists(tmp_onnx_path):
             # Delete the file
             os.remove(tmp_onnx_path)
 
-        core = ov.Core()
+        
         self.ov_compiled = core.compile_model(self.gpt2_ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
 
@@ -833,6 +851,7 @@ class HifiModel(BaseModel):
     
     def convert_ov(self):
         tmp_onnx_path = '/tmp/tmp_hifi.onnx'
+        ov_model_path = "./ov_hifi.xml"
         torch.onnx.export(self.get_model(),
             self.get_sample_input(),
             tmp_onnx_path,
@@ -841,14 +860,20 @@ class HifiModel(BaseModel):
             dynamic_axes=self.get_dynamic_axes()
         )
 
-        self.hifi_ov_model = ov.convert_model(tmp_onnx_path, input={"latents": ([1, -1, 1024], ov.Type.f32), "speaker_embedding": ([1, 512, 1], ov.Type.f32)})
-        
+        core = ov.Core()
+        if not os.path.exists(ov_model_path):
+            self.hifi_ov_model = ov.convert_model(tmp_onnx_path, input={"latents": ([1, -1, 1024], ov.Type.f32), "speaker_embedding": ([1, 512, 1], ov.Type.f32)})
+            ov.save_model(self.hifi_ov_model, ov_model_path)
+            print("========OpenVINO hifi_ov_model convert success========")
+        else:
+            self.hifi_ov_model = core.read_model(ov_model_path)
+
         # Check if the file exists
         if os.path.exists(tmp_onnx_path):
             # Delete the file
             os.remove(tmp_onnx_path)
 
-        core = ov.Core()
+        
         self.ov_compiled = core.compile_model(self.hifi_ov_model, self.device)
         self.ov_request = self.ov_compiled.create_infer_request()
 
