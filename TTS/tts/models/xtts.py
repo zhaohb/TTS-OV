@@ -517,10 +517,7 @@ class Xtts(BaseTTS):
         speed=1.0,
         enable_text_splitting=False,
         use_ov=False,
-        gpt_ov_model=None,
-        hifi_ov_model=None,
-        gpt_infer_model=None,
-        gpt_infer_past_model=None,
+        xttsv2_ov_model=None,
         **hf_generate_kwargs,
     ):
         language = language.split("-")[0]  # remove the country code
@@ -557,19 +554,16 @@ class Xtts(BaseTTS):
                     repetition_penalty=repetition_penalty,
                     output_attentions=False,
                     use_ov=use_ov,
-                    gpt_infer_model=gpt_infer_model,
-                    gpt_infer_past_model=gpt_infer_past_model,
+                    xttsv2_ov_model=xttsv2_ov_model,
                     **hf_generate_kwargs,
                 )
-                if use_ov:
-                    self.gpt.gpt_inference.generate_flag=False
                 expected_output_len = torch.tensor(
                     [gpt_codes.shape[-1] * self.gpt.code_stride_len], device=text_tokens.device
                 )
 
                 text_len = torch.tensor([text_tokens.shape[-1]], device=self.device)
                 if use_ov:
-                    gpt_latents = gpt_ov_model.run(
+                    gpt_latents = xttsv2_ov_model.gpt_model_run(
                         text_tokens,
                         text_len,
                         gpt_codes,
@@ -594,7 +588,7 @@ class Xtts(BaseTTS):
 
                 gpt_latents_list.append(gpt_latents.cpu())
                 if use_ov:
-                    wavs.append(hifi_ov_model.run(gpt_latents, speaker_embedding).squeeze())
+                    wavs.append(xttsv2_ov_model.hifi_model_run(gpt_latents, speaker_embedding).squeeze())
                 else:
                     wavs.append(self.hifigan_decoder(gpt_latents, g=speaker_embedding).cpu().squeeze())
 

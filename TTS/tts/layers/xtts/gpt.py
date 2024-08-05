@@ -585,8 +585,7 @@ class GPT(nn.Module):
         cond_latents,
         text_inputs,
         use_ov=False,
-        gpt_infer_model=None,
-        gpt_infer_past_model=None,
+        xttsv2_ov_model=None,
         **hf_generate_kwargs,
     ):
         gpt_inputs = self.compute_embeddings(cond_latents, text_inputs)
@@ -597,8 +596,7 @@ class GPT(nn.Module):
             eos_token_id=self.stop_audio_token,
             max_length=self.max_gen_mel_tokens + gpt_inputs.shape[-1],
             use_ov=use_ov,
-            gpt_infer_model=gpt_infer_model,
-            gpt_infer_past_model=gpt_infer_past_model,
+            xttsv2_ov_model=xttsv2_ov_model,
             **hf_generate_kwargs,
         )
         if "return_dict_in_generate" in hf_generate_kwargs:

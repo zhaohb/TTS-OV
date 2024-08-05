@@ -2,6 +2,7 @@ import math
 
 import torch
 from torch import nn
+import numpy as np
 from transformers import GPT2PreTrainedModel
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 
@@ -98,7 +99,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
             )
 
         return {
-            "input_ids": emb,
+            "inputs_embeds": emb,
             "past_key_values": past_key_values,
             "use_cache": kwargs.get("use_cache"),
             "position_ids": position_ids,
@@ -148,7 +149,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
             )
 
         return {
-            "input_ids": emb,
+            "inputs_embeds": emb,
             "past_key_values": past_key_values,
             "use_cache": kwargs.get("use_cache"),
             "position_ids": position_ids,
@@ -173,12 +174,12 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
         output_hidden_states=None,
         return_dict=False,
     ):
-        assert inputs_embeds is None  # Not supported by this inference model.
+        # assert inputs_embeds is None  # Not supported by this inference model.
         assert labels is None  # Training not supported by this inference model.
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        inputs_embeds=input_ids
-        input_ids = None
+        # inputs_embeds=input_ids
+        # input_ids = None
         output_attentions = output_attentions if output_attentions is not None else self.transformer.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.transformer.config.output_hidden_states
@@ -255,8 +256,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
         streamer: Optional["BaseStreamer"],
         logits_warper: Optional[LogitsProcessorList] = None,
         use_ov=False,
-        gpt_infer_model = None,
-        gpt_infer_past_model=None,
+        xttsv2_ov_model = None,
         **model_kwargs,
     ) -> Union[GenerateNonBeamOutput, torch.LongTensor]:
         r"""
@@ -331,20 +331,17 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
         model_kwargs = self._get_initial_cache_position(input_ids, model_kwargs)
 
         while self._has_unfinished_sequences(this_peer_finished, synced_gpus, device=input_ids.device):
-
-
             # forward pass to get next token
             if use_ov:
-                model_inputs = self.ov_prepare_inputs_for_generation(input_ids, **model_kwargs)
-                if gpt_infer_model and self.generate_flag is False:
-                    outputs = gpt_infer_model.run(input_ids=model_inputs['input_ids'], attention_mask=model_inputs['attention_mask'], position_ids=model_inputs['position_ids'])
+                model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+                if xttsv2_ov_model and self.generate_flag is False:
+                    outputs = xttsv2_ov_model.gpt_inference_run(inputs_embeds=model_inputs['inputs_embeds'], attention_mask=model_inputs['attention_mask'], position_ids=model_inputs['position_ids'])
                     self.generate_flag = True
-                elif gpt_infer_past_model and self.generate_flag is True:
-                    outputs = gpt_infer_past_model.run(input_ids=model_inputs['input_ids'], attention_mask=model_inputs['attention_mask'], position_ids=model_inputs['position_ids'], pkv=model_inputs['past_key_values'])
+                elif xttsv2_ov_model and self.generate_flag is True:
+                    outputs = xttsv2_ov_model.gpt_inference_past_run(inputs_embeds=model_inputs['inputs_embeds'], attention_mask=model_inputs['attention_mask'], position_ids=model_inputs['position_ids'], pkv=model_inputs['past_key_values'])
             else:
                 # prepare model inputs
                 model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
-                # breakpoint()
                 outputs = self(
                     **model_inputs,
                     return_dict=True,
@@ -501,8 +498,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
         negative_prompt_ids: Optional[torch.Tensor] = None,
         negative_prompt_attention_mask: Optional[torch.Tensor] = None,
         use_ov=False,
-        gpt_infer_model=None,
-        gpt_infer_past_model=None,
+        xttsv2_ov_model=None,
         **kwargs,
     ) -> Union[GenerateOutput, torch.LongTensor]:
         r"""
@@ -817,8 +813,7 @@ class GPT2InferenceModel(GPT2PreTrainedModel):
                 synced_gpus=synced_gpus,
                 streamer=streamer,
                 use_ov=use_ov,
-                gpt_infer_model=gpt_infer_model,
-                gpt_infer_past_model=gpt_infer_past_model,
+                xttsv2_ov_model=xttsv2_ov_model,
                 **model_kwargs,
             )
 

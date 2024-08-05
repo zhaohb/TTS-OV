@@ -418,6 +418,9 @@ $ tts --out_path output/path/speech.wav --model_name "<language>/<dataset>/<mode
 1. Support sdpa optimization
 ### 2024/07/25
 1. Expose device options to support different devices
+### 2024/08/06
+1. Refactor the code structure. 
+2. Support int4 weight compression
 ## Running Guide
 ### Installation
 🐸TTS is tested on Ubuntu 18.04 with **python >= 3.9, < 3.12.**.
@@ -432,45 +435,82 @@ pip install transformers==4.42.4
 pip install -e . 
 ```
 ### Using the model directly:
+cat ov_test_xtts2.py:
 ```python
 import os
 import torch
 import torchaudio
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
-from TTS.tts.models.xtts_model import GPTModel, HifiModel, GPTInferModel, GPTInferPastModel
+from TTS.tts.models.xttsv2_model import Xttsv2_OV, OVXttsForCausalLM
 import time
 import numpy as np
+from pathlib import Path
+import argparse
+import openvino as ov
 
-print("Loading model...")
-config = XttsConfig()
-config.load_json("/home/emr/hongbo/models/XTTS-v2/config.json")
-model = Xtts.init_from_config(config)
-model.load_checkpoint(config, checkpoint_dir="/home/emr/hongbo/models/XTTS-v2")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser("Export xttsv2 Model to IR", add_help=True)
+    parser.add_argument("-m", "--model_id", required=True, help="model_id or directory for loading")
+    parser.add_argument("-o", "--output_dir", required=True, help="output directory for saving model")
+    parser.add_argument('-d', '--device', default='CPU', help='inference device')
+    parser.add_argument('-t', '--text', default="OpenVINO is an open-source software toolkit for optimizing \
+                        and deploying deep learning models. It enables programmers to develop scalable and \
+                        efficient AI solutions with relatively few lines of code. It supports several popular \
+                         model formats.", help='text')
+    parser.add_argument('-l', '--language', default="en", help='language')
+    parser.add_argument('-int4', '--int4_compress', action="store_true", help='int4 weights compress')
 
-gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=["en_sample.wav", "en_sample.wav"])
+    args = parser.parse_args()
+    model_id = args.model_id
+    ov_model_path = args.output_dir
+    device = args.device
+    text = args.text
+    language = args.language
+    int4_compress = args.int4_compress
 
-gpt_ov_model = GPTModel(model=model, device='CPU')
-hifi_ov_model = HifiModel(model=model, device='CPU')
-gpt_infer_model = GPTInferModel(model=model, device='CPU')
-gpt_infer_past_model=GPTInferPastModel(model=model, device='CPU')
+    config = XttsConfig()
+    config.load_json("/home/emr/hongbo/models/XTTS-v2/config.json")
+    model = Xtts.init_from_config(config)
+    model.load_checkpoint(config, checkpoint_dir="/home/emr/hongbo/models/XTTS-v2")
+    
+    if not Path(ov_model_path).exists():
+        xttsv2_ov = Xttsv2_OV(model=model, ov_model_path=ov_model_path, device=device, int4_compress=int4_compress)
+        xttsv2_ov.export_xttsv2_to_ov()
+        del xttsv2_ov.model
+        del xttsv2_ov
+    elif Path(ov_model_path).exists() and int4_compress is True and not Path(f"{ov_model_path}/gpt_infer_int4.xml").exists():
+        xttsv2_ov = Xttsv2_OV(model=model, ov_model_path=ov_model_path, device=device, int4_compress=int4_compress)
+        xttsv2_ov.export_xttsv2_to_ov()
+        del xttsv2_ov.model
+        del xttsv2_ov
 
-print("Ov Inference...")
-out = model.inference(
-    "OpenVINO is an open-source software toolkit for optimizing and deploying deep learning models. It enables programmers to develop scalable and efficient AI solutions with relatively few lines of code. It supports several popular model formats.",
-    "en",
-    # " OpenVINO是一个开源工具包，可优化和部署深度学习模型。它提供了针对视觉、音频和语言模型的深度学习性能加速，支持流行框架。",
-    # "zh-cn",
-    gpt_cond_latent,
-    speaker_embedding,
-    temperature=0.7, # Add custom parameters here
-    use_ov = True,
-    gpt_ov_model=gpt_ov_model,
-    hifi_ov_model=hifi_ov_model,
-    gpt_infer_model=gpt_infer_model,
-    gpt_infer_past_model=gpt_infer_past_model,
-)
-torchaudio.save("ov_test.wav", torch.tensor(out["wav"]).unsqueeze(0), 24000)
+    core = ov.Core()
+    xttsv2_ov_model = OVXttsForCausalLM(core=core, ov_model_path=ov_model_path, device=device, int4_compress=int4_compress)
+
+    gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=["en_sample.wav", "en_sample.wav"])
+
+    print("Ov Inference...")
+    out = model.inference(
+        text,
+        language,
+        # " OpenVINO是一个开源工具包，可优化和部署深度学习模型。它提供了针对视觉、音频和语言模型的深度学习性能加速，支持流行框架。",
+        # "zh-cn",
+        gpt_cond_latent,
+        speaker_embedding,
+        temperature=0.7, # Add custom parameters here
+        use_ov = True,
+        xttsv2_ov_model=xttsv2_ov_model,
+    )
+    torchaudio.save("ov_test.wav", torch.tensor(out["wav"]).unsqueeze(0), 24000)
+```
+Then execute this python script with int4 weight compression:
+```shell
+python3 ov_test_xtts2.py -m /path/XTTS-v2/ -o /path/save/model -int4 -t "OpenVINO is an open-source software toolkit for optimizing and deploying deep learning models. It enables programmers to develop scalable and efficient AI solutions with relatively few lines of code." -l en
+```
+Then execute this python script with no int4 weight compression:
+```shell
+python3 ov_test_xtts2.py -m /path/XTTS-v2/ -o /path/save/model -t "OpenVINO is an open-source software toolkit for optimizing and deploying deep learning models. It enables programmers to develop scalable and efficient AI solutions with relatively few lines of code." -l en
 ```
 
 ### Optional Optimization
